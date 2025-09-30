@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Tickets v2 - Portable</title>
+    <!-- Incluyendo Tailwind CSS para un diseño moderno y adaptable -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #printable-ticket, #printable-ticket * { visibility: visible; }
+            #printable-ticket { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .ticket-preview { border-style: dashed; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 transition-all duration-500 flex items-center justify-center">
+
+    <!-- Contenedor de Autenticación (Login/Signup) -->
+    <div id="auth-container" class="w-full max-w-md mx-auto">
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Bienvenido</h1>
+            <p class="text-center text-gray-500 mb-8">Inicia sesión con tu cuenta de Google para continuar</p>
+            <button id="google-signin-btn" class="w-full bg-white border border-gray-300 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-50 transition flex items-center justify-center space-x-3">
+                <svg class="w-6 h-6" viewBox="0 0 48 48"><defs><path id="a" d="M44.5 20H24v8.5h11.8C34.7 35.9 30.1 39 24 39c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/></defs><clipPath id="b"><use xlink:href="#a" overflow="visible"/></clipPath><path clip-path="url(#b)" fill="#FBBC05" d="M0 37V11l17 13z"/><path clip-path="url(#b)" fill="#EA4335" d="M0 11l17 13 7-6.1L48 14V0H0z"/><path clip-path="url(#b)" fill="#34A853" d="M0 37l30-23.1 7.9 5.2L48 37H0z"/><path clip-path="url(#b)" fill="#4285F4" d="M48 48L17 24l-4-3 35-10z"/></svg>
+                <span>Acceder con Google</span>
+            </button>
+            <p id="auth-error" class="text-red-500 text-sm text-center mt-4"></p>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal de la Aplicación -->
+    <div id="app-container" class="hidden w-full max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-lg">
+             <div>
+                <h1 class="text-xl font-bold text-gray-800">Generador de Tickets</h1>
+                <p id="user-email" class="text-sm text-gray-500"></p>
+             </div>
+             <button id="logout-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition">Salir</button>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+                <div class="text-center">
+                    <h2 class="text-2xl font-bold text-gray-800">Nuevo Ticket</h2>
+                    <p class="text-gray-500 mt-2">Siguiente Folio: <span id="folio-display" class="font-bold text-gray-900">Cargando...</span></p>
+                </div>
+                <div class="mt-8 space-y-4">
+                    <input type="text" id="description" placeholder="Descripción del producto o servicio" class="block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="number" id="price" placeholder="Precio (ej. 150.00)" class="block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mt-8">
+                    <button id="generate-ticket-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">Emitir Ticket</button>
+                </div>
+            </div>
+            <div>
+                <div id="ticket-preview-container" class="hidden bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
+                    <div id="printable-ticket">
+                        <h2 class="text-xl font-bold text-center text-gray-800 mb-4">Último Ticket Emitido</h2>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <p><strong>Folio:</strong> <span id="ticket-folio" class="font-mono"></span></p>
+                            <p><strong>Descripción:</strong> <span id="ticket-description"></span></p>
+                            <p><strong>Precio:</strong> <span id="ticket-price" class="font-semibold"></span></p>
+                            <p class="text-xs text-gray-400 pt-2 border-t mt-2"><em><span id="ticket-date"></span></em></p>
+                        </div>
+                    </div>
+                    <button id="print-btn" class="no-print w-full mt-6 bg-teal-500 text-white font-bold py-3 rounded-lg hover:bg-teal-600 transition">🖨️ Imprimir</button>
+                </div>
+                <div id="admin-panel" class="hidden bg-white rounded-xl shadow-lg p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Panel de Administrador</h2>
+                    <p class="text-sm text-gray-600 mb-4">Listado de todos los tickets generados.</p>
+                    <div id="all-tickets-list" class="space-y-3 max-h-96 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs (versión compatible con <script>) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Configuración de Firebase ---
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "TU_API_KEY", authDomain: "TU_PROJECT_ID.firebaseapp.com", projectId: "TU_PROJECT_ID" };
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+            // --- Inicialización de Firebase ---
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const db = firebase.firestore();
+
+            // --- Referencias a Elementos del DOM ---
+            const authContainer = document.getElementById('auth-container');
+            const appContainer = document.getElementById('app-container');
+            const googleSigninBtn = document.getElementById('google-signin-btn');
+            const authError = document.getElementById('auth-error');
+            const logoutBtn = document.getElementById('logout-btn');
+            const userEmailDisplay = document.getElementById('user-email');
+            const folioDisplay = document.getElementById('folio-display');
+            const descriptionInput = document.getElementById('description');
+            const priceInput = document.getElementById('price');
+            const generateBtn = document.getElementById('generate-ticket-btn');
+            const adminPanel = document.getElementById('admin-panel');
+            const allTicketsList = document.getElementById('all-tickets-list');
+            const ticketPreviewContainer = document.getElementById('ticket-preview-container');
+            const ticketFolio = document.getElementById('ticket-folio');
+            const ticketDescription = document.getElementById('ticket-description');
+            const ticketPrice = document.getElementById('ticket-price');
+            const ticketDate = document.getElementById('ticket-date');
+            const printBtn = document.getElementById('print-btn');
+
+            let currentUserRole = 'user';
+
+            // --- Lógica de Autenticación y UI ---
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    authContainer.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                    userEmailDisplay.textContent = user.email;
+                    await checkUserRole(user.uid);
+                    setupUIForRole();
+                    updateFolioDisplay();
+                } else {
+                    authContainer.classList.remove('hidden');
+                    appContainer.classList.add('hidden');
+                    currentUserRole = 'user';
+                }
+            });
+            
+            googleSigninBtn.addEventListener('click', () => {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(provider)
+                    .then(async (result) => {
+                        const user = result.user;
+                        const isNewUser = result.additionalUserInfo.isNewUser;
+
+                        if (isNewUser) {
+                            // Si es la primera vez que inicia sesión, configuramos su rol
+                            const userCountRef = db.doc(`artifacts/${appId}/public/data/meta/userCount`);
+                            let newRole = 'user';
+                            
+                            await db.runTransaction(async (transaction) => {
+                                const userCountDoc = await transaction.get(userCountRef);
+                                if (!userCountDoc.exists) {
+                                    transaction.set(userCountRef, { count: 1 });
+                                    newRole = 'admin'; // El primer usuario es admin
+                                } else {
+                                    const newCount = userCountDoc.data().count + 1;
+                                    transaction.update(userCountRef, { count: newCount });
+                                }
+                            });
+
+                            // Creamos el perfil del usuario
+                            await db.doc(`artifacts/${appId}/users/${user.uid}/profile/info`).set({
+                                email: user.email,
+                                displayName: user.displayName,
+                                role: newRole,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        }
+                        // onAuthStateChanged se encargará de mostrar la app
+                    }).catch((error) => {
+                        authError.textContent = "Error de autenticación: " + error.message;
+                    });
+            });
+            
+            logoutBtn.addEventListener('click', () => auth.signOut());
+            
+            async function checkUserRole(uid) {
+                const userDocRef = db.doc(`artifacts/${appId}/users/${uid}/profile/info`);
+                const docSnap = await userDocRef.get();
+                if (docSnap.exists && docSnap.data().role === 'admin') {
+                    currentUserRole = 'admin';
+                } else {
+                    currentUserRole = 'user';
+                }
+            }
+
+            function setupUIForRole() {
+                if (currentUserRole === 'admin') {
+                    adminPanel.classList.remove('hidden');
+                    listenForAllTickets();
+                } else {
+                    adminPanel.classList.add('hidden');
+                }
+            }
+
+            function getTodayDateString() {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                return `${year}${month}${day}`;
+            }
+
+            async function updateFolioDisplay() {
+                const dateStr = getTodayDateString();
+                const counterRef = db.doc(`artifacts/${appId}/public/data/counters/${dateStr}`);
+                const counterDoc = await counterRef.get();
+                const nextNumber = (counterDoc.exists ? counterDoc.data().lastFolio : 0) + 1;
+                folioDisplay.textContent = `${dateStr}-${String(nextNumber).padStart(3, '0')}`;
+            }
+
+            generateBtn.addEventListener('click', async () => {
+                const description = descriptionInput.value.trim();
+                const price = parseFloat(priceInput.value);
+
+                if (!description || isNaN(price) || price <= 0) {
+                    alert("Por favor, introduce una descripción y un precio válido.");
+                    return;
+                }
+                
+                const user = auth.currentUser;
+                if (!user) return;
+                
+                const dateStr = getTodayDateString();
+                const counterRef = db.doc(`artifacts/${appId}/public/data/counters/${dateStr}`);
+
+                try {
+                    const newFolioNumber = await db.runTransaction(async (transaction) => {
+                        const counterDoc = await transaction.get(counterRef);
+                        const lastFolio = counterDoc.exists ? counterDoc.data().lastFolio : 0;
+                        const newFolio = lastFolio + 1;
+                        
+                        transaction.set(counterRef, { lastFolio: newFolio }, { merge: true });
+                        
+                        const folioString = `${dateStr}-${String(newFolio).padStart(3, '0')}`;
+                        const ticketRef = db.collection(`artifacts/${appId}/public/data/tickets`).doc();
+
+                        transaction.set(ticketRef, {
+                            folio: folioString,
+                            description: description,
+                            price: price,
+                            createdBy: user.uid,
+                            creatorEmail: user.email,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        
+                        return newFolio;
+                    });
+                    
+                    const folioString = `${dateStr}-${String(newFolioNumber).padStart(3, '0')}`;
+                    showTicketPreview(folioString, description, price);
+                    descriptionInput.value = '';
+                    priceInput.value = '';
+                    updateFolioDisplay();
+
+                } catch (e) {
+                    console.error("Error en la transacción del ticket: ", e);
+                    alert("No se pudo generar el ticket. Inténtalo de nuevo.");
+                }
+            });
+
+            function showTicketPreview(folio, description, price) {
+                ticketFolio.textContent = folio;
+                ticketDescription.textContent = description;
+                ticketPrice.textContent = `$${price.toFixed(2)} MXN`;
+                ticketDate.textContent = new Date().toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' });
+                ticketPreviewContainer.classList.remove('hidden');
+            }
+
+            function listenForAllTickets() {
+                const ticketsRef = db.collection(`artifacts/${appId}/public/data/tickets`);
+                const q = ticketsRef.orderBy("createdAt", "desc");
+                
+                q.onSnapshot((snapshot) => {
+                    allTicketsList.innerHTML = '';
+                    if (snapshot.empty) {
+                        allTicketsList.innerHTML = '<p class="text-gray-500">Aún no hay tickets.</p>';
+                        return;
+                    }
+                    snapshot.forEach(doc => {
+                        const ticket = doc.data();
+                        const ticketEl = document.createElement('div');
+                        ticketEl.className = 'p-3 bg-gray-50 rounded-lg border';
+                        ticketEl.innerHTML = `
+                            <p class="font-bold text-gray-800">Folio: ${ticket.folio}</p>
+                            <p class="text-sm text-gray-600">${ticket.description} - <span class="font-semibold">$${ticket.price.toFixed(2)}</span></p>
+                            <p class="text-xs text-gray-400">Por: ${ticket.creatorEmail}</p>
+                        `;
+                        allTicketsList.appendChild(ticketEl);
+                    });
+                });
+            }
+            
+            printBtn.addEventListener('click', () => window.print());
+        });
+    </script>
+</body>
+</html>
+
